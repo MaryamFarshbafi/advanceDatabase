@@ -17,6 +17,13 @@
 /* uncomment out the following DEBUG line for debug info, for experiment comment the DEBUG line  */
 // #define DEBUG
 
+int64_t low_bin_search(int64_t *data, int64_t size, int64_t target);
+void bulk_bin_search(int64_t *data, int64_t size, int64_t *searchkeys, int64_t numsearches, int64_t *results, int repeats);
+int64_t low_bin_nb_arithmetic(int64_t *data, int64_t size, int64_t target);
+int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target);
+void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right);
+
+// test commit
 /* compare two int64_t values - for use with qsort */
 static int compare(const void *p1, const void *p2)
 {
@@ -109,9 +116,8 @@ inline int64_t low_bin_nb_arithmetic(int64_t *data, int64_t size, int64_t target
 
   while (left < right)
   {
-
     /* YOUR CODE HERE */
-      mid = (left + right) / 2;
+    mid = (left + right) / 2;
     int64_t condition = (data[mid] >= target);
     right = condition * mid + (1 - condition) * right;
     left = (1 - condition) * (mid + 1) + condition * left;
@@ -131,9 +137,8 @@ inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
   */
   int64_t left = 0;
   int64_t right = size;
-
   /* YOUR CODE HERE */
-   int64_t mid;
+  int64_t mid;
 
   while (left < right)
   {
@@ -141,9 +146,9 @@ inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
     int64_t mask = -(data[mid] >= target);
     right = (mask & mid) | (~mask & right);
     left = (~mask & (mid + 1)) | (mask & left);
-  }
 
-  return right;
+    return right;
+  }
 }
 
 inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right)
