@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <asm/unistd.h>
@@ -151,6 +152,32 @@ inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
   }
 }
 
+int64_t* low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
+{
+  /* this binary search variant
+     (a) does no comparisons in the inner loop by using bit masking operations to convert control dependencies
+         to data dependencies
+     (b) doesn't require an exact match; instead it returns the index of the first key >= the search key.
+         That's good in a DB context where we might be doing a range search, and using binary search to
+   identify the first key in the range.
+     (c) If the search key is bigger than all keys, it returns size.
+  */
+  int64_t left = 0;
+  int64_t right = size;
+  /* YOUR CODE HERE */
+  int64_t mid;
+
+  while (left < right)
+  {
+    mid = (left + (right - left)) / 2;
+    int64_t mask = -(data[mid] >= target);
+    right = (mask & mid) | (~mask & right);
+    left = (~mask & (mid + 1)) | (mask & left);
+
+    return right;
+  }
+}
+
 inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right)
 {
   /* this binary search variant
@@ -163,9 +190,26 @@ inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t
          can make progress even when some instructions are still waiting for their operands to be ready.
 
      Note that we're using the result array as the "right" elements in the search so no need for a return statement
-  */
+  */ #define NUM_THREADS 4 //use the number of cores (if known)
+    pthread_t threads[NUM_THREADS];
+    struct data{
+      int64_t *data;
+      int64_t size; 
+      int64_t target;
+    } *args;
 
-  /* YOUR CODE HERE */
+    for (int i=0; i < NUM_THREADS; ++i)
+    {
+        args->data=data;
+        args->size=size;
+        args->target=targets[i];
+
+        right[i]=pthread_create(&threads[i], NULL, low_bin_nb_mask_call, args);
+    }
+    for (int i=0; i < NUM_THREADS; ++i)
+        pthread_join(threads[i], NULL);
+
+    return 0;
 }
 
 /* The following union type is handy to output the contents of AVX512 data types */
