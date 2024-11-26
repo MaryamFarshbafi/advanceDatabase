@@ -218,6 +218,26 @@ inline void low_bin_nb_simd(int64_t *data, int64_t size, __m256i target, __m256i
   */
 
   /* YOUR CODE HERE */
+  __m256i left = _mm256_set1_epi64x(0);
+  __m256i right = _mm256_set1_epi64x(size);
+  __m256i one = _mm256_set1_epi64x(1);
+  __m256i mid;
+  while (_mm256_movemask_epi8(_mm256_cmpgt_epi64(right, left)) != 0)
+  {
+    mid = _mm256_add_epi64(left, _mm256_srli_epi64(_mm256_sub_epi64(right, left), 1));
+    __m256i mid_values = _mm256_i64gather_epi64(data, mid, 8);
+    __m256i cmp = _mm256_cmpgt_epi64(target, mid_values);
+    left = _mm256_blendv_epi8(left, _mm256_add_epi64(mid, one), cmp);
+    right = _mm256_blendv_epi8(mid, right, cmp);
+
+    // now it needs to check the condition terminatuon
+    __m256i finished = _mm256_cmpeq_epi64(left, right);
+    if (_mm256_testz_si256(finished, finished))
+    {
+      break;
+    }
+  }
+  *result = right;
 }
 
 void bulk_bin_search(int64_t *data, int64_t size, int64_t *searchkeys, int64_t numsearches, int64_t *results, int repeats)
