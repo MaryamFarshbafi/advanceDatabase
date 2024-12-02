@@ -208,8 +208,24 @@ inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t
     }
     for (int i=0; i < NUM_THREADS; ++i)
         pthread_join(threads[i], NULL);
+ int64_t left[4] = {0, 0, 0, 0};
+  int64_t mid[4];
+  memcpy(right, (int64_t[]){size, size, size, size}, 4 * sizeof(int64_t));
 
-    return 0;
+  while (left[0] < right[0] || left[1] < right[1] || left[2] < right[2] || left[3] < right[3])
+  {
+    for (int i = 0; i < 4; i++)
+    {
+      if (left[i] < right[i])
+      {
+        mid[i] = (left[i] + (right[i] - left[i]) / 2);
+        int64_t mask = -(data[mid[i]] >= targets[i]);
+        right[i] = (mask & mid[i]) | (~mask & right[i]);
+        left[i] = (~mask & (mid[i] + 1)) | (mask & left[i]);
+      }
+    }
+  }
+   return 0;
 }
 
 /* The following union type is handy to output the contents of AVX512 data types */
