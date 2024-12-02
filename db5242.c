@@ -399,9 +399,8 @@ int64_t band_join(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t ou
     low_bin_nb_4x(inner, inner_size, target_upper, upper_bound);
 
     // collect results for the batch
-    for (int i = 0; i < 4; i++)
-    {
-      for (int64_t k = lower_bound[i]; k < target_upper[i]; k++)
+    for (int i = 0; i < 4; i++){
+      for (int64_t k = lower_bound[i]; k < upper_bound[i]; k++)
       {
         if (count >= result_size)
         {
