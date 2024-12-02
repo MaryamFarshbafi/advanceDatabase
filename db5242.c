@@ -152,7 +152,7 @@ inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
   }
 }
 
-int64_t *low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
+int64_t low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
 {
   /* this binary search variant
      (a) does no comparisons in the inner loop by using bit masking operations to convert control dependencies
@@ -267,7 +267,7 @@ inline void low_bin_nb_simd(int64_t *data, int64_t size, __m256i target, __m256i
   while (_mm256_movemask_epi8(_mm256_cmpgt_epi64(right, left)) != 0)
   {
     mid = _mm256_add_epi64(left, _mm256_srli_epi64(_mm256_sub_epi64(right, left), 1));
-    __m256i mid_values = _mm256_i64gather_epi64(data, mid, 8);
+    __m256i mid_values = _mm256_i64gather_epi64((long long int *)data, mid, 8);
     __m256i cmp = _mm256_cmpgt_epi64(target, mid_values);
     left = _mm256_blendv_epi8(left, _mm256_add_epi64(mid, one), cmp);
     right = _mm256_blendv_epi8(mid, right, cmp);
