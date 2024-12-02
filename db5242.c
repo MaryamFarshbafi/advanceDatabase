@@ -23,7 +23,7 @@ void bulk_bin_search(int64_t *data, int64_t size, int64_t *searchkeys, int64_t n
 int64_t low_bin_nb_arithmetic(int64_t *data, int64_t size, int64_t target);
 int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target);
 void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right);
- inline void low_bin_nb_simd(int64_t *data, int64_t size, __m256i target, __m256i *result);
+void low_bin_nb_simd(int64_t *data, int64_t size, __m256i target, __m256i *result);
 
 // test commit
 /* compare two int64_t values - for use with qsort */
@@ -593,7 +593,11 @@ int main(int argc, char *argv[])
 
   gettimeofday(&after, NULL);
   printf("Time in bulk_bin_search loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
-
+  FILE *file=fopen("results", "w");
+  fprintf(file, "microseconds");
+  fprintf(file, "%f\n", after.tv_sec);
+  fprintf(file, "Microseconds per search");
+  fprintf(file, "%f\n", before.tv_sec);
   gettimeofday(&before, NULL);
 
   /* the code that you want to measure goes here; make a function call */
@@ -601,6 +605,11 @@ int main(int argc, char *argv[])
 
   gettimeofday(&after, NULL);
   printf("Time in bulk_bin_search_4x loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
+  
+  fprintf(file, "microseconds");
+  fprintf(file, " bulk_bin_search_4x loop: %f\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec));
+  fprintf(file, "Microseconds per search");
+  fprintf(file, "%f\n", 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
 
   gettimeofday(&before, NULL);
 
@@ -609,6 +618,15 @@ int main(int argc, char *argv[])
 
   gettimeofday(&after, NULL);
   printf("Band join result size is %ld with an average of %f matches per output record\n", total_results, 1.0 * total_results / (1.0 + outer_results[total_results - 1]));
+  fprintf(file, "Join Result Size: %ld", total_results);
+  fprintf(file, "Average matches per output:\n");
+  fprintf(file, "%f", 1.0 * total_results / (1.0 + outer_results[total_results - 1]));
+
+  fprintf(file, "microseconds");
+  fprintf(file, "%f\n", after.tv_sec);
+  fprintf("Microseconds per search");
+  fprintf(file, "%f\n", before.tv_sec);
+
   printf("Time in band_join loop is %ld microseconds or %f microseconds per outer record\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / outer_size);
 
 #ifdef DEBUG
