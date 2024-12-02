@@ -23,6 +23,7 @@ void bulk_bin_search(int64_t *data, int64_t size, int64_t *searchkeys, int64_t n
 int64_t low_bin_nb_arithmetic(int64_t *data, int64_t size, int64_t target);
 int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target);
 void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right);
+ inline void low_bin_nb_simd(int64_t *data, int64_t size, __m256i target, __m256i *result)
 
 // test commit
 /* compare two int64_t values - for use with qsort */
@@ -242,7 +243,7 @@ void printavx(char *name, __m256i v)
 
  */
 
-inline void low_bin_nb_simd(int64_t *data, int64_t size, __m256i target, __m256i *result)
+ inline void low_bin_nb_simd(int64_t *data, int64_t size, __m256i target, __m256i *result)
 {
   /* this binary search variant
      (a) does no comparisons in the inner loop by using bit masking operations instead
