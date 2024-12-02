@@ -191,27 +191,23 @@ inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t
                                                                                                                   \ \
    Note that we're using the result array as the "right" elements in the search so no need for a return statement   \
 */                                                                                                                  \
-#define NUM_THREADS 4 // use the number of cores (if known)
-  pthread_t threads[NUM_THREADS];
-  struct data
-  {
-    int64_t *data;
-    int64_t size;
-    int64_t target;
-  } *args;
+ int64_t left[4] = {0, 0, 0, 0};
+  int64_t mid[4];
+  memcpy(right, (int64_t[]){size, size, size, size}, 4 * sizeof(int64_t));
 
-  for (int i = 0; i < NUM_THREADS; ++i)
+  while (left[0] < right[0] || left[1] < right[1] || left[2] < right[2] || left[3] < right[3])
   {
-    args->data = data;
-    args->size = size;
-    args->target = targets[i];
-
-    right[i] = pthread_create(&threads[i], NULL, low_bin_nb_mask_call, args);
+    for (int i = 0; i < 4; i++)
+    {
+      if (left[i] < right[i])
+      {
+        mid[i] = (left[i] + (right[i] - left[i]) / 2);
+        int64_t mask = -(data[mid[i]] >= targets[i]);
+        right[i] = (mask & mid[i]) | (~mask & right[i]);
+        left[i] = (~mask & (mid[i] + 1)) | (mask & left[i]);
+      }
+    }
   }
-  for (int i = 0; i < NUM_THREADS; ++i)
-    pthread_join(threads[i], NULL);
-
-  return 0;
 }
 
 /* The following union type is handy to output the contents of AVX512 data types */
@@ -451,9 +447,47 @@ int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64
 
      This inner scanning code does not have to use SIMD.
   */
+  int64_t output_count = 0;
 
-  /* YOUR CODE HERE */
+  for (int64_t outer_idx = 0; outer_idx < outer_size; outer_idx += 4) {
+      // Load the next 4 elements from the outer array
+      int64_t keys[4] = {0};
+      for (int i = 0; i < 4 && outer_idx + i < outer_size; ++i) {
+          keys[i] = outer[outer_idx + i];
+      }
+
+      // Define the lower and upper bounds
+      __m256i target_low = _mm256_sub_epi64(_mm256_loadu_si256((__m256i *)keys), _mm256_set1_epi64x(bound));
+      __m256i target_high = _mm256_add_epi64(_mm256_loadu_si256((__m256i *)keys), _mm256_set1_epi64x(bound));
+
+      // Perform binary search for the lower and upper bounds
+      __m256i lower_indices, upper_indices;
+      low_bin_nb_simd(inner, inner_size, target_low, &lower_indices);
+      low_bin_nb_simd(inner, inner_size, target_high, &upper_indices);
+
+      // Iterate over each key
+      for (int i = 0; i < 4 && outer_idx + i < outer_size; ++i) {
+          int64_t lower = ((int64_t *)&lower_indices)[i];
+          int64_t upper = ((int64_t *)&upper_indices)[i];
+
+          // Scan the inner array within the bounds
+          for (int64_t inner_idx = lower; inner_idx < inner_size && inner_idx <= upper; ++inner_idx) {
+              if (inner[inner_idx] >= keys[i] - bound && inner[inner_idx] <= keys[i] + bound) {
+                  // Add results to the output arrays
+                  if (output_count < result_size) {
+                      inner_results[output_count] = inner_idx;
+                      outer_results[output_count] = outer_idx + i;
+                      output_count++;
+                  } else {
+                      return output_count; // Return early if the result buffer is full
+                  }
+              }
+          }
+      }
+  }
+  return output_count;
 }
+
 
 int main(int argc, char *argv[])
 {
