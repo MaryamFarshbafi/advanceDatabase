@@ -152,7 +152,7 @@ inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
   }
 }
 
-int64_t* low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
+int64_t *low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
 {
   /* this binary search variant
      (a) does no comparisons in the inner loop by using bit masking operations to convert control dependencies
@@ -180,34 +180,17 @@ int64_t* low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
 
 inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right)
 {
-  /* this binary search variant
-     (a) does no comparisons in the inner loop by using bit masking operations instead
-     (b) doesn't require an exact match; instead it returns the index of the first key >= the search key.
-         That's good in a DB context where we might be doing a range search, and using binary search to
-   identify the first key in the range.
-     (c) If the search key is bigger than all keys, it returns size.
-     (d) does 4 searches at the same time in an interleaved fashion, so that an out-of-order processor
-         can make progress even when some instructions are still waiting for their operands to be ready.
-
-     Note that we're using the result array as the "right" elements in the search so no need for a return statement
-  */ #define NUM_THREADS 4 //use the number of cores (if known)
-    pthread_t threads[NUM_THREADS];
-    struct data{
-      int64_t *data;
-      int64_t size; 
-      int64_t target;
-    } *args;
-
-    for (int i=0; i < NUM_THREADS; ++i)
-    {
-        args->data=data;
-        args->size=size;
-        args->target=targets[i];
-
-        right[i]=pthread_create(&threads[i], NULL, low_bin_nb_mask_call, args);
-    }
-    for (int i=0; i < NUM_THREADS; ++i)
-        pthread_join(threads[i], NULL);
+/* this binary search variant                                                                                       \
+   (a) does no comparisons in the inner loop by using bit masking operations instead                                \
+   (b) doesn't require an exact match; instead it returns the index of the first key >= the search key.             \
+       That's good in a DB context where we might be doing a range search, and using binary search to               \
+ identify the first key in the range.                                                                               \
+   (c) If the search key is bigger than all keys, it returns size.                                                  \
+   (d) does 4 searches at the same time in an interleaved fashion, so that an out-of-order processor                \
+       can make progress even when some instructions are still waiting for their operands to be ready.              \
+                                                                                                                  \ \
+   Note that we're using the result array as the "right" elements in the search so no need for a return statement   \
+*/                                                                                                                  \
  int64_t left[4] = {0, 0, 0, 0};
   int64_t mid[4];
   memcpy(right, (int64_t[]){size, size, size, size}, 4 * sizeof(int64_t));
@@ -225,7 +208,6 @@ inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t
       }
     }
   }
-   return 0;
 }
 
 /* The following union type is handy to output the contents of AVX512 data types */
@@ -387,6 +369,65 @@ int64_t band_join(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t ou
   */
 
   /* YOUR CODE HERE */
+  /*input array:inner represent the column salary
+  input array: outter represent request column
+  output array: inner result
+  output array: output result
+  -it should be Use low_bin_nb_4x to show 4 binary searches simultaneously to overlap delay.
+  -Use low_bin_nb_mask for any remaining searches.
+  */
+  int64_t count = 0; // track the number of result will be added
+  // process four outer element
+  int64_t index = 0;
+  while (index + 4 <= outer_size)
+  {
+    int64_t lower_bound[4], upper_bound[4];
+    // preper target range for the bash
+    int64_t target_lower[4];
+    int64_t target_upper[4];
+    for (int i = 0; i < 4; i++)
+    {
+      target_lower[i] = outer[index + i] - bound;
+      target_upper[i] = outer[index + i] + bound;
+    }
+    // show binary search for lower and upper bound
+    low_bin_nb_4x(inner, inner_size, target_lower, lower_bound);
+    low_bin_nb_4x(inner, inner_size, target_upper, upper_bound);
+
+    // collect results for the batch
+    for (int i = 0; i < 4; i++)
+    {
+      for (int64_t k = lower_bound[i]; k < target_upper[i]; k++)
+      {
+        if (count >= result_size)
+        {
+          return count;
+        }
+        inner_results[count] = k;
+        outer_results[count] = index + i;
+        count++;
+      }
+    }
+    index += 4;
+  }
+  // process ramining outer element
+  for (int i = 0; i < outer_size; i++)
+  {
+    int64_t lower_bound = low_bin_nb_mask(inner, inner_size, outer[i] - bound);
+    int64_t upper_bound = low_bin_nb_mask(inner, inner_size, outer[i] + bound);
+    for (int64_t j = lower_bound; j < upper_bound; j++)
+    {
+      if (count >= result_size)
+      {
+        return count;
+        inner_results[count] = j;
+        inner_results[count] = i;
+        count++;
+      }
+    }
+  }
+
+  return count;
 }
 
 int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t outer_size, int64_t *inner_results, int64_t *outer_results, int64_t result_size, int64_t bound)
@@ -407,9 +448,47 @@ int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64
 
      This inner scanning code does not have to use SIMD.
   */
+  int64_t output_count = 0;
 
-  /* YOUR CODE HERE */
+  for (int64_t outer_idx = 0; outer_idx < outer_size; outer_idx += 4) {
+      // Load the next 4 elements from the outer array
+      int64_t keys[4] = {0};
+      for (int i = 0; i < 4 && outer_idx + i < outer_size; ++i) {
+          keys[i] = outer[outer_idx + i];
+      }
+
+      // Define the lower and upper bounds
+      __m256i target_low = _mm256_sub_epi64(_mm256_loadu_si256((__m256i *)keys), _mm256_set1_epi64x(bound));
+      __m256i target_high = _mm256_add_epi64(_mm256_loadu_si256((__m256i *)keys), _mm256_set1_epi64x(bound));
+
+      // Perform binary search for the lower and upper bounds
+      __m256i lower_indices, upper_indices;
+      low_bin_nb_simd(inner, inner_size, target_low, &lower_indices);
+      low_bin_nb_simd(inner, inner_size, target_high, &upper_indices);
+
+      // Iterate over each key
+      for (int i = 0; i < 4 && outer_idx + i < outer_size; ++i) {
+          int64_t lower = ((int64_t *)&lower_indices)[i];
+          int64_t upper = ((int64_t *)&upper_indices)[i];
+
+          // Scan the inner array within the bounds
+          for (int64_t inner_idx = lower; inner_idx < inner_size && inner_idx <= upper; ++inner_idx) {
+              if (inner[inner_idx] >= keys[i] - bound && inner[inner_idx] <= keys[i] + bound) {
+                  // Add results to the output arrays
+                  if (output_count < result_size) {
+                      inner_results[output_count] = inner_idx;
+                      outer_results[output_count] = outer_idx + i;
+                      output_count++;
+                  } else {
+                      return output_count; // Return early if the result buffer is full
+                  }
+              }
+          }
+      }
+  }
+  return output_count;
 }
+
 
 int main(int argc, char *argv[])
 {
