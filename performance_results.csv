@@ -1,0 +1,4 @@
+Function,Total Time (microseconds),Avg Time Per Search (microseconds),Total Results,Avg Matches Per Output Record
+bulk_bin_search,363,0.036300,0,0.000000
+bulk_bin_search_4x,908,0.090800,0,0.000000
+band_join,171,0.000000,0,0.000000

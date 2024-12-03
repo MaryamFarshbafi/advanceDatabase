@@ -490,6 +490,13 @@ int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64
   return output_count;
 }
 
+void write_csv_header(FILE *file) {
+    fprintf(file, "Function,Total Time (microseconds),Avg Time Per Search (microseconds),Total Results,Avg Matches Per Output Record\n");
+}
+
+void write_to_csv(FILE *file, const char *function_name, long total_time, double avg_time_per_search, long total_results, double avg_matches_per_record) {
+    fprintf(file, "%s,%ld,%f,%ld,%f\n", function_name, total_time, avg_time_per_search, total_results, avg_matches_per_record);
+}
 
 int main(int argc, char *argv[])
 {
@@ -587,61 +594,6 @@ int main(int argc, char *argv[])
 
   /* now measure... */
 
-gettimeofday(&before, NULL);
-
-/* the code that you want to measure goes here; make a function call */
-bulk_bin_search(data, arraysize, queries, arraysize, results, repeats);
-
-gettimeofday(&after, NULL);
-// fprintf("Time in bulk_bin_search loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
-FILE *file=fopen("results", "w");
-if (!file)
-{
-  fprintf(stderr, "Error opening file 'results'.\n");
-  exit(EXIT_FAILURE);
-}
-// fprintf(file, "Microseconds: %ld\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec));
-// fprintf(file, "Microseconds: %ld\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec));
-int64_t time_difference_us = (int64_t)(after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
-// fprintf(file, "Microseconds per search: %f\n", 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
-fprintf(file, "Microseconds: %ld\n", time_difference_us);
-fprintf(file, "Microseconds per search: %f\n", (double)time_difference_us / arraysize / repeats);
-// Ensure to close the file after writing
-fclose(file);
-  // fprintf(file, "microseconds");
-  // fprintf(file, "%f\n", after.tv_sec);
-  // fprintf(file, "Microseconds per search");
-  // fprintf(file, "%f\n", before.tv_sec);
-  gettimeofday(&before, NULL);
-
-  /* the code that you want to measure goes here; make a function call */
-  bulk_bin_search_4x(data, arraysize, queries, arraysize, results, repeats);
-
-  gettimeofday(&after, NULL);
-  printf("Time in bulk_bin_search_4x loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
-  
-  fprintf(file, "microseconds");
-  fprintf(file, " bulk_bin_search_4x loop: %f\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec));
-  fprintf(file, "Microseconds per search");
-  fprintf(file, "%f\n", 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
-
-  gettimeofday(&before, NULL);
-
-  /* the code that you want to measure goes here; make a function call */
-  total_results = band_join(data, arraysize, outer, outer_size, inner_results, outer_results, result_size, bound);
-
-  gettimeofday(&after, NULL);
-  printf("Band join result size is %ld with an average of %f matches per output record\n", total_results, 1.0 * total_results / (1.0 + outer_results[total_results - 1]));
-  fprintf(file, "Join Result Size: %ld", total_results);
-  fprintf(file, "Average matches per output:\n");
-  fprintf(file, "%f", 1.0 * total_results / (1.0 + outer_results[total_results - 1]));
-
-  fprintf(file, "microseconds");
-  fprintf(file, "%f\n", after.tv_sec);
-  fprintf(file,"Microseconds per search");
-  fprintf(file, "%f\n", before.tv_sec);
-
-  printf("Time in band_join loop is %ld microseconds or %f microseconds per outer record\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / outer_size);
 
 #ifdef DEBUG
   /* show the band_join results */
