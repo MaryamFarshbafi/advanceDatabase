@@ -621,12 +621,6 @@ int main(int argc, char *argv[])
 
   const char *csv_filename = "timing_results.csv";
 
-  FILE *file = fopen(csv_filename, "w");
-  if (file != NULL) {
-      fprintf(file, "Function,ArraySize,TimeMicroseconds,TimePerSearch\n");
-      fclose(file);
-  }
-
   //bulk binary search
   gettimeofday(&before, NULL);
 
