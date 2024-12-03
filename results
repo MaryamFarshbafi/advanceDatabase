@@ -1,4 +1,2 @@
-0.425839
-0.425839
- bulk_bin_search_4x loop: 0.451582
-0.451582
+Microseconds: 1
+Microseconds per search: 0.100000

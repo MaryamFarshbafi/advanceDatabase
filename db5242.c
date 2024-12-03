@@ -149,8 +149,9 @@ inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
     right = (mask & mid) | (~mask & right);
     left = (~mask & (mid + 1)) | (mask & left);
 
-    return right;
+    
   }
+  return right;
 }
 
 int64_t low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
@@ -175,8 +176,9 @@ int64_t low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
     right = (mask & mid) | (~mask & right);
     left = (~mask & (mid + 1)) | (mask & left);
 
-    return right;
+    
   }
+  return right;
 }
 
 inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right)
@@ -302,7 +304,7 @@ void bulk_bin_search(int64_t *data, int64_t size, int64_t *searchkeys, int64_t n
 
       // Uncomment one of the following to measure it
       results[i] = low_bin_search(data, size, searchkeys[i]);
-      // results[i] = low_bin_nb_arithmetic(data,size,searchkeys[i]);
+      results[i] = low_bin_nb_arithmetic(data,size,searchkeys[i]);
       // results[i] = low_bin_nb_mask(data,size,searchkeys[i]);
 
 #ifdef DEBUG
@@ -411,23 +413,22 @@ int64_t band_join(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t ou
     index += 4;
   }
   // process ramining outer element
-  for (int i = 0; i < outer_size; i++)
+  for (; index < outer_size; index++)
   {
-    int64_t lower_bound = low_bin_nb_mask(inner, inner_size, outer[i] - bound);
-    int64_t upper_bound = low_bin_nb_mask(inner, inner_size, outer[i] + bound);
+    int64_t lower_bound = low_bin_nb_mask(inner, inner_size, outer[index] - bound);
+    int64_t upper_bound = low_bin_nb_mask(inner, inner_size, outer[index] + bound);
     for (int64_t j = lower_bound; j < upper_bound; j++)
     {
-      if (count >= result_size)
-      {
+      if (count >= result_size){
         return count;
+      } 
         inner_results[count] = j;
-        inner_results[count] = i;
+        outer_results[count] = index;
         count++;
       }
+      return count;
     }
-  }
-
-  return count;
+  
 }
 
 int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t outer_size, int64_t *inner_results, int64_t *outer_results, int64_t result_size, int64_t bound)
@@ -586,18 +587,31 @@ int main(int argc, char *argv[])
 
   /* now measure... */
 
-  gettimeofday(&before, NULL);
+gettimeofday(&before, NULL);
 
-  /* the code that you want to measure goes here; make a function call */
-  bulk_bin_search(data, arraysize, queries, arraysize, results, repeats);
+/* the code that you want to measure goes here; make a function call */
+bulk_bin_search(data, arraysize, queries, arraysize, results, repeats);
 
-  gettimeofday(&after, NULL);
-  printf("Time in bulk_bin_search loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
-  FILE *file=fopen("results", "w");
-  fprintf(file, "microseconds");
-  fprintf(file, "%f\n", after.tv_sec);
-  fprintf(file, "Microseconds per search");
-  fprintf(file, "%f\n", before.tv_sec);
+gettimeofday(&after, NULL);
+// fprintf("Time in bulk_bin_search loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
+FILE *file=fopen("results", "w");
+if (!file)
+{
+  fprintf(stderr, "Error opening file 'results'.\n");
+  exit(EXIT_FAILURE);
+}
+// fprintf(file, "Microseconds: %ld\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec));
+// fprintf(file, "Microseconds: %ld\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec));
+int64_t time_difference_us = (int64_t)(after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+// fprintf(file, "Microseconds per search: %f\n", 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
+fprintf(file, "Microseconds: %ld\n", time_difference_us);
+fprintf(file, "Microseconds per search: %f\n", (double)time_difference_us / arraysize / repeats);
+// Ensure to close the file after writing
+fclose(file);
+  // fprintf(file, "microseconds");
+  // fprintf(file, "%f\n", after.tv_sec);
+  // fprintf(file, "Microseconds per search");
+  // fprintf(file, "%f\n", before.tv_sec);
   gettimeofday(&before, NULL);
 
   /* the code that you want to measure goes here; make a function call */
@@ -624,7 +638,7 @@ int main(int argc, char *argv[])
 
   fprintf(file, "microseconds");
   fprintf(file, "%f\n", after.tv_sec);
-  fprintf("Microseconds per search");
+  fprintf(file,"Microseconds per search");
   fprintf(file, "%f\n", before.tv_sec);
 
   printf("Time in band_join loop is %ld microseconds or %f microseconds per outer record\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / outer_size);
