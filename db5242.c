@@ -489,6 +489,13 @@ int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64
   return output_count;
 }
 
+void write_csv_header(FILE *file) {
+    fprintf(file, "Function,Total Time (microseconds),Avg Time Per Search (microseconds),Total Results,Avg Matches Per Output Record\n");
+}
+
+void write_to_csv(FILE *file, const char *function_name, long total_time, double avg_time_per_search, long total_results, double avg_matches_per_record) {
+    fprintf(file, "%s,%ld,%f,%ld,%f\n", function_name, total_time, avg_time_per_search, total_results, avg_matches_per_record);
+}
 
 int main(int argc, char *argv[])
 {
@@ -585,49 +592,44 @@ int main(int argc, char *argv[])
 #endif
 
   /* now measure... */
-
-  gettimeofday(&before, NULL);
-
-  /* the code that you want to measure goes here; make a function call */
-  bulk_bin_search(data, arraysize, queries, arraysize, results, repeats);
-
-  gettimeofday(&after, NULL);
-  printf("Time in bulk_bin_search loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
-  FILE *file=fopen("results", "w");
-  fprintf(file, "microseconds");
-  fprintf(file, "%f\n", after.tv_sec);
-  fprintf(file, "Microseconds per search");
-  fprintf(file, "%f\n", before.tv_sec);
-  gettimeofday(&before, NULL);
-
-  /* the code that you want to measure goes here; make a function call */
-  bulk_bin_search_4x(data, arraysize, queries, arraysize, results, repeats);
-
-  gettimeofday(&after, NULL);
-  printf("Time in bulk_bin_search_4x loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
+  FILE *file = fopen("performance_results.csv", "w");
+  if (!file) {
+      printf("Failed to open file for writing\n");
+      return 1;
+  }
   
-  fprintf(file, "microseconds");
-  fprintf(file, " bulk_bin_search_4x loop: %f\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec));
-  fprintf(file, "Microseconds per search");
-  fprintf(file, "%f\n", 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
+  write_csv_header(file);
 
+  // Measure and log for bulk_bin_search
   gettimeofday(&before, NULL);
-
-  /* the code that you want to measure goes here; make a function call */
-  total_results = band_join(data, arraysize, outer, outer_size, inner_results, outer_results, result_size, bound);
-
+  bulk_bin_search(data, arraysize, queries, arraysize, results, repeats);
   gettimeofday(&after, NULL);
-  printf("Band join result size is %ld with an average of %f matches per output record\n", total_results, 1.0 * total_results / (1.0 + outer_results[total_results - 1]));
-  fprintf(file, "Join Result Size: %ld", total_results);
-  fprintf(file, "Average matches per output:\n");
-  fprintf(file, "%f", 1.0 * total_results / (1.0 + outer_results[total_results - 1]));
 
-  fprintf(file, "microseconds");
-  fprintf(file, "%f\n", after.tv_sec);
-  fprintf("Microseconds per search");
-  fprintf(file, "%f\n", before.tv_sec);
+  long bulk_bin_search_time = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+  double bulk_bin_search_avg = 1.0 * bulk_bin_search_time / arraysize / repeats;
+  write_to_csv(file, "bulk_bin_search", bulk_bin_search_time, bulk_bin_search_avg, 0, 0);
 
-  printf("Time in band_join loop is %ld microseconds or %f microseconds per outer record\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / outer_size);
+  // Measure and log for bulk_bin_search_4x
+  gettimeofday(&before, NULL);
+  bulk_bin_search_4x(data, arraysize, queries, arraysize, results, repeats);
+  gettimeofday(&after, NULL);
+
+  long bulk_bin_search_4x_time = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+  double bulk_bin_search_4x_avg = 1.0 * bulk_bin_search_4x_time / arraysize / repeats;
+  write_to_csv(file, "bulk_bin_search_4x", bulk_bin_search_4x_time, bulk_bin_search_4x_avg, 0, 0);
+
+  // Measure and log for band_join
+  gettimeofday(&before, NULL);
+  total_results = band_join(data, arraysize, outer, outer_size, inner_results, outer_results, result_size, bound);
+  gettimeofday(&after, NULL);
+
+  long band_join_time = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+  double band_join_avg_matches = 1.0 * total_results / (1.0 + outer_results[total_results - 1]);
+  write_to_csv(file, "band_join", band_join_time, 0, total_results, band_join_avg_matches);
+
+  fclose(file);
+  printf("Finished writing to performance_results.csv\n");
+  return 0;
 
 #ifdef DEBUG
   /* show the band_join results */
