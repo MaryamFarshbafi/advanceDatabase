@@ -1,2 +1,28 @@
-Microseconds: 1
-Microseconds per search: 0.100000
+Function,ArraySize,TimeMicroseconds,TimePerSearch
+bulk_bin_search,100,13,0.013000
+bulk_bin_search_4x,100,15,0.015000
+band_join,100,0,0.000000
+bulk_bin_search,10,1,0.010000
+bulk_bin_search_4x,10,2,0.020000
+band_join,10,0,0.000000
+bulk_bin_search,100,4,0.040000
+bulk_bin_search_4x,100,2,0.020000
+band_join,100,0,0.000000
+bulk_bin_search,1000,58,0.058000
+bulk_bin_search_4x,1000,18,0.018000
+band_join,1000,1,0.100000
+bulk_bin_search,10000,749,0.074900
+bulk_bin_search_4x,10000,280,0.028000
+band_join,10000,1,0.100000
+bulk_bin_search,100000,11060,0.110600
+bulk_bin_search_4x,100000,4485,0.044850
+band_join,100000,2,0.200000
+bulk_bin_search,1000000,154730,0.154730
+bulk_bin_search_4x,1000000,61774,0.061774
+band_join,1000000,1,0.100000
+bulk_bin_search,10000000,2646793,0.264679
+bulk_bin_search_4x,10000000,1607214,0.160721
+band_join,10000000,2,0.200000
+bulk_bin_search,100000000,41989933,0.419899
+bulk_bin_search_4x,100000000,28642819,0.286428
+band_join,100000000,4,0.400000
