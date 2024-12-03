@@ -592,7 +592,10 @@ int main(int argc, char *argv[])
 #endif
 
   /* now measure... */
-  FILE *file = fopen("performance_results.csv", "w");
+  char filename[50];
+  sprintf(filename, "performance_results_%lld.csv", outer_size);
+
+  FILE *file = fopen(filename, "w");
   if (!file) {
       printf("Failed to open file for writing\n");
       return 1;
