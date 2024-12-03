@@ -341,7 +341,7 @@ void bulk_bin_search_4x(int64_t *data, int64_t size, int64_t *searchkeys, int64_
       low_bin_nb_4x(data, size, &searchkeys[i], &results[i]);
 
       // Algorithm B
-      // searchkey_4x = _mm256_loadu_si256((__m256i *)&searchkeys[i]);
+       searchkey_4x = _mm256_loadu_si256((__m256i *)&searchkeys[i]);
       // low_bin_nb_simd(data,size,searchkey_4x,(__m256i *)&results[i]);
 
 #ifdef DEBUG
