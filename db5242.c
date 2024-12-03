@@ -149,8 +149,9 @@ inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
     right = (mask & mid) | (~mask & right);
     left = (~mask & (mid + 1)) | (mask & left);
 
-    return right;
+    
   }
+  return right;
 }
 
 int64_t low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
@@ -175,8 +176,9 @@ int64_t low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
     right = (mask & mid) | (~mask & right);
     left = (~mask & (mid + 1)) | (mask & left);
 
-    return right;
+    
   }
+  return right;
 }
 
 inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right)
@@ -302,7 +304,7 @@ void bulk_bin_search(int64_t *data, int64_t size, int64_t *searchkeys, int64_t n
 
       // Uncomment one of the following to measure it
       results[i] = low_bin_search(data, size, searchkeys[i]);
-      // results[i] = low_bin_nb_arithmetic(data,size,searchkeys[i]);
+      results[i] = low_bin_nb_arithmetic(data,size,searchkeys[i]);
       // results[i] = low_bin_nb_mask(data,size,searchkeys[i]);
 
 #ifdef DEBUG
@@ -411,23 +413,22 @@ int64_t band_join(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t ou
     index += 4;
   }
   // process ramining outer element
-  for (int i = 0; i < outer_size; i++)
+  for (; index < outer_size; index++)
   {
-    int64_t lower_bound = low_bin_nb_mask(inner, inner_size, outer[i] - bound);
-    int64_t upper_bound = low_bin_nb_mask(inner, inner_size, outer[i] + bound);
+    int64_t lower_bound = low_bin_nb_mask(inner, inner_size, outer[index] - bound);
+    int64_t upper_bound = low_bin_nb_mask(inner, inner_size, outer[index] + bound);
     for (int64_t j = lower_bound; j < upper_bound; j++)
     {
-      if (count >= result_size)
-      {
+      if (count >= result_size){
         return count;
+      } 
         inner_results[count] = j;
-        inner_results[count] = i;
+        outer_results[count] = index;
         count++;
       }
+      return count;
     }
-  }
-
-  return count;
+  
 }
 
 int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t outer_size, int64_t *inner_results, int64_t *outer_results, int64_t result_size, int64_t bound)
@@ -592,47 +593,7 @@ int main(int argc, char *argv[])
 #endif
 
   /* now measure... */
-  char filename[50];
-  sprintf(filename, "performance_results_%lld.csv", outer_size);
 
-  FILE *file = fopen(filename, "w");
-  if (!file) {
-      printf("Failed to open file for writing\n");
-      return 1;
-  }
-  
-  write_csv_header(file);
-
-  // Measure and log for bulk_bin_search
-  gettimeofday(&before, NULL);
-  bulk_bin_search(data, arraysize, queries, arraysize, results, repeats);
-  gettimeofday(&after, NULL);
-
-  long bulk_bin_search_time = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
-  double bulk_bin_search_avg = 1.0 * bulk_bin_search_time / arraysize / repeats;
-  write_to_csv(file, "bulk_bin_search", bulk_bin_search_time, bulk_bin_search_avg, 0, 0);
-
-  // Measure and log for bulk_bin_search_4x
-  gettimeofday(&before, NULL);
-  bulk_bin_search_4x(data, arraysize, queries, arraysize, results, repeats);
-  gettimeofday(&after, NULL);
-
-  long bulk_bin_search_4x_time = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
-  double bulk_bin_search_4x_avg = 1.0 * bulk_bin_search_4x_time / arraysize / repeats;
-  write_to_csv(file, "bulk_bin_search_4x", bulk_bin_search_4x_time, bulk_bin_search_4x_avg, 0, 0);
-
-  // Measure and log for band_join
-  gettimeofday(&before, NULL);
-  total_results = band_join(data, arraysize, outer, outer_size, inner_results, outer_results, result_size, bound);
-  gettimeofday(&after, NULL);
-
-  long band_join_time = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
-  double band_join_avg_matches = 1.0 * total_results / (1.0 + outer_results[total_results - 1]);
-  write_to_csv(file, "band_join", band_join_time, 0, total_results, band_join_avg_matches);
-
-  fclose(file);
-  printf("Finished writing to performance_results.csv\n");
-  return 0;
 
 #ifdef DEBUG
   /* show the band_join results */
