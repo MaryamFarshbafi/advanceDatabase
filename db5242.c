@@ -3,7 +3,7 @@
 
   See class project handout for more extensive documentation.
 */
-
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -148,9 +148,8 @@ inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
     int64_t mask = -(data[mid] >= target);
     right = (mask & mid) | (~mask & right);
     left = (~mask & (mid + 1)) | (mask & left);
-
-  }
     return right;
+  }
 }
 
 int64_t low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
@@ -175,8 +174,8 @@ int64_t low_bin_nb_mask_call(int64_t *data, int64_t size, int64_t target)
     right = (mask & mid) | (~mask & right);
     left = (~mask & (mid + 1)) | (mask & left);
 
-  }
     return right;
+  }
 }
 
 inline void low_bin_nb_4x(int64_t *data, int64_t size, int64_t *targets, int64_t *right)
@@ -302,7 +301,7 @@ void bulk_bin_search(int64_t *data, int64_t size, int64_t *searchkeys, int64_t n
 
       // Uncomment one of the following to measure it
       results[i] = low_bin_search(data, size, searchkeys[i]);
-      results[i] = low_bin_nb_arithmetic(data,size,searchkeys[i]);
+      // results[i] = low_bin_nb_arithmetic(data,size,searchkeys[i]);
       // results[i] = low_bin_nb_mask(data,size,searchkeys[i]);
 
 #ifdef DEBUG
@@ -339,7 +338,7 @@ void bulk_bin_search_4x(int64_t *data, int64_t size, int64_t *searchkeys, int64_
       low_bin_nb_4x(data, size, &searchkeys[i], &results[i]);
 
       // Algorithm B
-      searchkey_4x = _mm256_loadu_si256((__m256i *)&searchkeys[i]);
+      // searchkey_4x = _mm256_loadu_si256((__m256i *)&searchkeys[i]);
       // low_bin_nb_simd(data,size,searchkey_4x,(__m256i *)&results[i]);
 
 #ifdef DEBUG
@@ -411,23 +410,24 @@ int64_t band_join(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t ou
     index += 4;
   }
   // process ramining outer element
-  for (; index < outer_size; index++)
+  for (int i = 0; i < outer_size; i++)
   {
-    int64_t lower_bound = low_bin_nb_mask(inner, inner_size, outer[index] - bound);
-    int64_t upper_bound = low_bin_nb_mask(inner, inner_size, outer[index] + bound);
+    int64_t lower_bound = low_bin_nb_mask(inner, inner_size, outer[i] - bound);
+    int64_t upper_bound = low_bin_nb_mask(inner, inner_size, outer[i] + bound);
     for (int64_t j = lower_bound; j < upper_bound; j++)
     {
-      if (count >= result_size){
+      if (count >= result_size)
+      {
         return count;
-       }
         inner_results[count] = j;
         outer_results[count] = index;
         count++;
       }
-    return count;
     }
-}
+  }
 
+  return count;
+}
 
 int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64_t outer_size, int64_t *inner_results, int64_t *outer_results, int64_t result_size, int64_t bound)
 {
@@ -488,13 +488,41 @@ int64_t band_join_simd(int64_t *inner, int64_t inner_size, int64_t *outer, int64
   return output_count;
 }
 
-void write_csv_header(FILE *file) {
-    fprintf(file, "Function,Total Time (microseconds),Avg Time Per Search (microseconds),Total Results,Avg Matches Per Output Record\n");
+/* Check if the CSV file is empty or doesn't exist */
+bool is_csv_empty(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        // File does not exist
+        return true;
+    }
+    int ch = fgetc(file);
+    fclose(file);
+    return (ch == EOF);
 }
 
-void write_to_csv(FILE *file, const char *function_name, long total_time, double avg_time_per_search, long total_results, double avg_matches_per_record) {
-    fprintf(file, "%s,%ld,%f,%ld,%f\n", function_name, total_time, avg_time_per_search, total_results, avg_matches_per_record);
+/* Add a helper function to append data to the CSV file */
+void log_to_csv(const char *filename, const char *function_name, long array_size, long time_microseconds, double time_per_search) {
+    // Open the file in append mode
+    FILE *file = fopen(filename, "a");
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    // Add headers if the file is empty
+    static bool checked_headers = false;
+    if (!checked_headers) {
+        if (is_csv_empty(filename)) {
+            fprintf(file, "Function,ArraySize,TimeMicroseconds,TimePerSearch\n");
+        }
+        checked_headers = true;
+    }
+
+    // Append data
+    fprintf(file, "%s,%ld,%ld,%f\n", function_name, array_size, time_microseconds, time_per_search);
+    fclose(file);
 }
+
 int main(int argc, char *argv[])
 {
   long long counter;
@@ -591,30 +619,47 @@ int main(int argc, char *argv[])
 
   /* now measure... */
 
+  const char *csv_filename = "timing_results.csv";
+
+  FILE *file = fopen(csv_filename, "w");
+  if (file != NULL) {
+      fprintf(file, "Function,ArraySize,TimeMicroseconds,TimePerSearch\n");
+      fclose(file);
+  }
+
+  //bulk binary search
   gettimeofday(&before, NULL);
 
   /* the code that you want to measure goes here; make a function call */
   bulk_bin_search(data, arraysize, queries, arraysize, results, repeats);
 
   gettimeofday(&after, NULL);
-  printf("Time in bulk_bin_search loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
+  long time_microseconds = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+  double time_per_search = 1.0 * time_microseconds / arraysize / repeats;
+  printf("Time in bulk_bin_search loop is %ld microseconds or %f microseconds per search\n", time_microseconds, time_per_search);
+  log_to_csv(csv_filename, "bulk_bin_search", arraysize, time_microseconds, time_per_search);
 
+  //bulk binary search 4x
   gettimeofday(&before, NULL);
 
   /* the code that you want to measure goes here; make a function call */
   bulk_bin_search_4x(data, arraysize, queries, arraysize, results, repeats);
 
   gettimeofday(&after, NULL);
-  printf("Time in bulk_bin_search_4x loop is %ld microseconds or %f microseconds per search\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / arraysize / repeats);
+  time_microseconds = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+  time_per_search = 1.0 * time_microseconds / arraysize / repeats;
+  printf("Time in bulk_bin_search_4x loop is %ld microseconds or %f microseconds per search\n", time_microseconds, time_per_search);
+  log_to_csv(csv_filename, "bulk_bin_search_4x", arraysize, time_microseconds, time_per_search);
 
+  //band join
   gettimeofday(&before, NULL);
-
-  /* the code that you want to measure goes here; make a function call */
   total_results = band_join(data, arraysize, outer, outer_size, inner_results, outer_results, result_size, bound);
-
   gettimeofday(&after, NULL);
+  time_microseconds = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+  time_per_search = 1.0 * time_microseconds / outer_size;
   printf("Band join result size is %ld with an average of %f matches per output record\n", total_results, 1.0 * total_results / (1.0 + outer_results[total_results - 1]));
-  printf("Time in band_join loop is %ld microseconds or %f microseconds per outer record\n", (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec), 1.0 * ((after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec)) / outer_size);
+  printf("Time in band_join loop is %ld microseconds or %f microseconds per outer record\n", time_microseconds, time_per_search);
+  log_to_csv(csv_filename, "band_join", arraysize, time_microseconds, time_per_search);
 
 #ifdef DEBUG
   /* show the band_join results */
