@@ -119,12 +119,12 @@ inline int64_t low_bin_nb_arithmetic(int64_t *data, int64_t size, int64_t target
   while (left < right)
   {
     /* YOUR CODE HERE */
-    mid = (left + (right - left)) / 2;
+    mid = left + ((right - left) / 2);
     int64_t condition = (data[mid] >= target);
     right = condition * mid + (1 - condition) * right;
-    left = (1 - condition) * (mid + 1) + condition * left;
+    left = (1 - condition) * (mid + 1) + (condition * left);
   }
-  return right;
+  return left;
 }
 
 inline int64_t low_bin_nb_mask(int64_t *data, int64_t size, int64_t target)
@@ -300,9 +300,9 @@ void bulk_bin_search(int64_t *data, int64_t size, int64_t *searchkeys, int64_t n
 #endif
 
       // Uncomment one of the following to measure it
-      results[i] = low_bin_search(data, size, searchkeys[i]);
+      // results[i] = low_bin_search(data, size, searchkeys[i]);
       // results[i] = low_bin_nb_arithmetic(data,size,searchkeys[i]);
-      // results[i] = low_bin_nb_mask(data,size,searchkeys[i]);
+      results[i] = low_bin_nb_mask(data,size,searchkeys[i]);
 
 #ifdef DEBUG
       printf("Result is %ld\n", results[i]);
@@ -335,11 +335,11 @@ void bulk_bin_search_4x(int64_t *data, int64_t size, int64_t *searchkeys, int64_
       // Uncomment one of the following depending on which routine you want to profile
 
       // Algorithm A
-      low_bin_nb_4x(data, size, &searchkeys[i], &results[i]);
+      // low_bin_nb_4x(data, size, &searchkeys[i], &results[i]);
 
       // Algorithm B
-      // searchkey_4x = _mm256_loadu_si256((__m256i *)&searchkeys[i]);
-      // low_bin_nb_simd(data,size,searchkey_4x,(__m256i *)&results[i]);
+      searchkey_4x = _mm256_loadu_si256((__m256i *)&searchkeys[i]);
+      low_bin_nb_simd(data,size,searchkey_4x,(__m256i *)&results[i]);
 
 #ifdef DEBUG
       printf("Result is %ld %ld %ld %ld  ...\n",
@@ -620,7 +620,6 @@ int main(int argc, char *argv[])
   /* now measure... */
 
   const char *csv_filename = "timing_results.csv";
-
   //bulk binary search
   gettimeofday(&before, NULL);
 
